@@ -1,0 +1,174 @@
+---
+description: Canonical C11 implementation for file-toto — module layout, classify path, magic order, buffer policy, and exit behaviour
+globs: ["src/**/*.c", "include/**/*.h"]
+alwaysApply: false
+---
+
+# file-toto — Implementation (C11)
+
+## Module layout
+
+| Path | Role |
+|------|------|
+| `include/file_toto.h` | `FILE_TOTO_BUF_SIZE` (8192), `FILE_TOTO_DESC_CAP`, `FILE_TOTO_VERSION_STRING`, `FILE_TOTO_EXIT_*` enum, `file_toto_opts_t`, `classify_content()` (`static inline`), `file_toto_run()` declaration |
+| `include/file_toto_emit.h` | `file_toto_emit_error()`, `file_toto_emit_bad_flag()` |
+| `include/file_toto_magic.h` | Embedded magic table accessors / `match_magic()` helpers used by `classify_content()` |
+| `include/file_toto_cli.h` | `parse_flags()`, `print_help()`, `print_version()` |
+| `src/main.c` | `main()` only — dispatch help/version, parse flags, collect operands, call `file_toto_run()` |
+| `src/file_toto_emit.c` | stderr diagnostics: `file-toto: <context>: <strerror(errno)>` |
+| `src/file_toto_identify.c` | `file_toto_run()`, per-operand `stat`/`lstat`/`open`/`read`, format result line, `write()` to stdout |
+| `src/file_toto_magic.c` | Compiled-in magic signatures and text/binary heuristics backing `classify_content()` |
+| `src/file_toto_cli.c` | Flag parse, help/version text |
+
+Each `.c` file opens with a **chain-of-thought comment block** (responsibility,
+syscalls, heap policy, classify strategy, C standard). Preserve that pattern
+when adding files.
+
+## C standard
+
+**ISO C11** (`-std=c11`), `-D_POSIX_C_SOURCE=200809L` for Linux POSIX.1-2008
+(`open`, `read`, `write`, `stat`, `lstat`, etc.).
+MinGW builds define `_WIN32`; symlink/`lstat` and binary-mode opens are guarded
+there (see below).
+
+## Buffer size (8 KiB prefix)
+
+`FILE_TOTO_BUF_SIZE` is **8192** bytes.
+
+Rationale: enough to cover common magic signatures and a useful text/binary
+sample without reading whole files; amortises one `read()` per regular file.
+
+`FILE_TOTO_DESC_CAP` is the stack capacity for a single human-readable or MIME
+description string (including NUL). Keep descriptions short; do not grow via heap.
+
+## Classification order (`classify_content` / `file_toto_run`)
+
+Mirror classic Unix `file(1)` test order — **first match wins**:
+
+1. **Filesystem tests** (`stat` / `lstat`): directory, symlink, fifo, socket,
+   block/char device, empty regular file, missing/unreadable (result line).
+2. **Magic tests** on the read prefix: embedded signatures (ELF, PE, PNG, JPEG,
+   GIF, ZIP/jar, PDF, etc.).
+3. **Language / content heuristics**: ASCII/UTF-8 text vs “data” / binary.
+
+`classify_content()` is the pure, testable core for steps 2–3 (and empty /
+zero-length content). Filesystem-only outcomes are decided in
+`file_toto_identify.c` before calling it.
+
+## Per-file path (`src/file_toto_identify.c`)
+
+```
+for each operand:
+  lstat/stat according to -h / -L
+  if missing/unreadable:
+    if opts.fatal_errors (-E): emit stderr, exit_status = 1, continue (or stop
+      only if policy requires — default: continue, then exit 1)
+    else: write stdout result line "<name>: cannot open …", keep exit 0
+  if non-regular (dir, symlink without -L, etc.): write type from mode; continue
+  open + read up to FILE_TOTO_BUF_SIZE (binary mode on Windows)
+  classify_content(buf, n, …) → description
+  write result line to stdout
+```
+
+**Default output:** `filename: description\n`  
+**`-b` / `--brief`:** `description\n` only  
+**`-i` / `--mime`:** MIME string instead of human description (e.g. `text/plain`,
+`application/pdf`, `inode/directory`)
+
+## `classify_content()` contract
+
+In `include/file_toto.h` (or thin wrappers declared there, defined via magic
+header):
+
+- **Precondition:** `buf` non-NULL if `len > 0`; `out` non-NULL; `out_cap >= 1`
+- **Postcondition:** `out` holds a NUL-terminated description; return `0` on
+  success, `-1` only if `out_cap` is too small (callers must size
+  `FILE_TOTO_DESC_CAP` adequately — treat undersize as a programming error)
+- **`len == 0`:** empty content → `"empty"` (human) or appropriate MIME
+- Pure with respect to I/O: **no** `open`/`read`/`write` inside
+  `classify_content()` — only examine the provided bytes and option flags
+
+## Hot path rules
+
+**Allowed:**
+
+- Stack `unsigned char buf[FILE_TOTO_BUF_SIZE]`
+- One `read()` (or short read loop to fill the prefix) per regular file
+- `write(STDOUT_FILENO, …)` for each result line with partial-write / `EINTR` retry
+- Table-driven magic matching over the prefix
+
+**Forbidden in classify / identify:**
+
+- Linking **libmagic** or shipping/parsing external magic files
+- `malloc` / `calloc` / `realloc` on the per-file path
+- `printf` / `fprintf` / `puts` / `fputs` / `fwrite` for result lines
+
+## Symlinks (`-h` / `-L`)
+
+| Flag | Behaviour |
+|------|-----------|
+| default / `-h` / `--no-dereference` | `lstat`; report symlink as symlink (do not follow) |
+| `-L` / `--dereference` | `stat` / follow; classify the target |
+
+On platforms without useful symlink semantics under `_WIN32`, document the
+guarded fallback in code comments; do not invent fake symlink types.
+
+## Binary mode (Windows)
+
+| Platform | Behaviour |
+|----------|-----------|
+| **Linux / POSIX** | No-op — `read()` returns raw bytes |
+| **Windows / MinGW (`_WIN32`)** | After `open()`, set `_O_BINARY` so magic bytes are not corrupted by CRLF translation |
+
+## Signals
+
+Unlike `yes-toto`, `file-toto` has a **finite** per-operand loop:
+
+- No custom `SIGINT` handler — default Ctrl+C is correct.
+- No `SIGPIPE` ignore required for correctness of a short result write; if a
+  write hits `EPIPE`, treat as a write failure (exit `1`) after optional
+  `EINVAL`→`EPIPE` normalisation on Windows pipes.
+
+## Exit codes
+
+| Code | Constant | Meaning |
+|------|----------|---------|
+| `0` | `FILE_TOTO_EXIT_OK` | Classification finished; `--help`; `--version`; missing/unreadable files **without** `-E` (POSIX) |
+| `1` | `FILE_TOTO_EXIT_ERR` | Bad flag, write failure, signal/setup failure if any, or filesystem errors when `-E` is set |
+
+## Error messages
+
+Stderr diagnostics (true errors / `-E`):
+
+`file-toto: <context>: <strerror(errno)>`
+
+Invalid option:
+
+`file-toto: invalid option -- '<flag>'`
+
+Never print those to stdout. Classification / cannot-open **result** lines are
+stdout only.
+
+## Argument parsing (`src/file_toto_cli.c`)
+
+1. Scan **all** `argv[1…]`: exact `--help` or `--h` → help + exit 0 (**wins**
+   over version).
+2. Else exact `--version` or `--v` → `file-toto <version>\n` + exit 0.
+3. Parse flags left to right; `--` ends flag parsing.
+4. Supported short/long options (see `project-overview.mdc`): `-b`/`--brief`,
+   `-i`/`--mime`/`--mime-type`, `-h`/`--no-dereference`, `-L`/`--dereference`,
+   `-E`. Combined shorts (e.g. `-bi`) allowed.
+5. Remaining non-flag tokens are file operands. **At least one** operand is
+   required (no stdin-as-default in the baseline — matches common `file`
+   usage; do not invent `-` stdin classification unless explicitly requested).
+6. Unknown flag → emit bad-flag message + exit 1.
+
+## Magic table policy
+
+- Compiled into `file_toto_magic.c` — **libc only**, no external DB.
+- Prefer longest / most specific match when multiple signatures could apply.
+- Keep the table small and documented; expand only when asked.
+
+## Naming
+
+Public run entry point: **`file_toto_run()`** (not bare `run`).

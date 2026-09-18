@@ -1,0 +1,92 @@
+---
+description: Project identity, purpose, and high-level goals for `file-toto`
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# file-toto — Project Overview
+
+## What This Project Is
+
+`file-toto` is a faithful CLI replica of the Unix `file` command (the classic
+type-classification utility; not a GNU coreutils binary). For each path
+operand it prints a short description of what the file appears to be — using
+filesystem metadata, then embedded magic signatures on a content prefix, then
+simple text/binary heuristics.
+
+Output is one result line per operand on stdout. There is **no** infinite
+output loop and **no** external magic database / libmagic dependency.
+
+## Binary Name
+
+The compiled binary must always be named **`file-toto`**. Never rename it.
+On Windows, MinGW may also emit `file-toto.exe`; that is the same program.
+
+## Platforms
+
+| Platform | Build environment | Notes |
+|----------|-------------------|-------|
+| **Linux** | `gcc`/`clang` + GNU Make | Full POSIX path: `lstat`/`stat`, `open`/`read` |
+| **Windows** | **MSYS2 UCRT64** (recommended) | Native Windows `.exe`; binary-mode opens; symlink support as available under MinGW |
+| **Git Bash** | Works if `/c/msys64/ucrt64/bin` is **early** on `PATH` | Same binary as UCRT64; see `toolchain-structure.mdc` |
+
+Binaries are **not portable** across OSes — build separately on Linux and on
+Windows.
+
+## Scope — Keep It Minimal
+
+Supporting behaviour:
+
+- Built-in `--help` / `--h` and `--version` / `--v` (detected anywhere in
+  `argv`; help wins if both appear)
+- `-b` / `--brief`, `-i` / `--mime` / `--mime-type`, `-h` / `--no-dereference`,
+  `-L` / `--dereference`, `-E` (fatal filesystem errors)
+- Compiled-in magic for common formats + empty / directory / symlink / text /
+  data fallbacks
+
+**Do not add**:
+
+- Interactive or TUI modes
+- External magic files (`-m` / `--magic-file`) or libmagic
+- Compression walking (`-z`), apple, extension, or sandbox flags
+- Logging or debug output in normal operation
+- Single-dash `-v` as version (version is `--version` / `--v` only; `-v` is
+  reserved / unused — do not invent GNU `file -v` unless requested)
+- Any feature that would break Unix `file` behavioural compatibility for the
+  supported subset
+
+## Behavioural Contract
+
+| Invocation | Output / behaviour |
+|---|---|
+| `file-toto file.txt` | `file.txt: ASCII text` (or similar human description) |
+| `file-toto a.png b.pdf` | one `name: type` line per operand, in order |
+| `file-toto -b file.txt` | description only (no `filename: ` prefix) |
+| `file-toto -i file.txt` | MIME type (e.g. `file.txt: text/plain`) |
+| `file-toto -h link` | classify the symlink itself |
+| `file-toto -L link` | follow symlink; classify the target |
+| `file-toto missing` | stdout result line about cannot open; exit `0` |
+| `file-toto -E missing` | stderr diagnostic; exit `1` |
+| `file-toto --version` / `file-toto --v` | `file-toto <version>\n`, exit `0` |
+| `file-toto --help` / `file-toto --h` | usage on stdout, exit `0` |
+
+At least one file operand is required (after flags).
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Classification completed; `--help`; `--version`; cannot-open **without** `-E` |
+| `1` | Bad option, write failure, or filesystem errors when `-E` is set |
+
+## Project Layout (summary)
+
+```
+include/   — file_toto.h + file_toto_{emit,magic,cli}.h
+src/       — main.c + file_toto_{emit,identify,magic,cli}.c
+tests/     — test_runner.c + test_classify_*.c / .h
+build/     — objects + binaries; dirs via .gitkeep, artefacts gitignored
+```
+
+See `implementation.mdc`, `toolchain-structure.mdc`, and `testing.mdc` for
+detail.

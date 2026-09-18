@@ -1,0 +1,95 @@
+---
+description: C code style, formatting, naming, and quality rules for file-toto
+globs: ["src/**/*.c", "include/**/*.h", "tests/**/*.c", "tests/**/*.h", "Makefile"]
+alwaysApply: false
+---
+
+# Code Style & Quality
+
+## Standard & flags
+
+- **C11** (`-std=c11`)
+- `-Wall -Wextra -Wpedantic -Werror`
+- `-D_POSIX_C_SOURCE=200809L`
+- Zero warnings — all treated as errors
+
+## Formatting
+
+- **Indentation:** 4 spaces. No tabs.
+- **Function definitions:** opening brace on its own line.
+- **Line length:** prefer ≤80 characters where practical.
+- **Files end with a single newline.**
+
+## Module conventions
+
+- **`src/main.c`** stays thin — wiring only; parse flags, collect operands, call
+  `file_toto_run()`. No `stat`/`open`/`read`, no magic matching.
+- **`include/file_toto.h`** — `static inline classify_content()` is intentional
+  (shared by `file_toto_identify.c` and tests without linking full `src/`).
+- **One concern per `src/file_toto_*.c`** — do not collapse back into a monolith
+  without reason.
+- **Platform code:** use `#if defined(_WIN32)` / `#else` for OS-specific behaviour
+  (e.g. symlink/`lstat` availability, binary-mode opens on Windows).
+
+## Naming
+
+| Kind | Style | Examples |
+|------|-------|----------|
+| Functions | `snake_case` | `file_toto_run`, `classify_content`, `match_magic` |
+| Macros / constants | `UPPER_SNAKE_CASE` | `FILE_TOTO_BUF_SIZE`, `FILE_TOTO_DESC_CAP` |
+| Headers | `FILE_TOTO_*_H` guards | `FILE_TOTO_H`, `FILE_TOTO_CLI_H` |
+| Struct types | `snake_case` + `_t` suffix | `file_toto_opts_t` |
+
+Public API prefix: **`file_toto_`** for module entry points; `classify_content`
+is the spec name for the inline classification helper.
+
+## Memory
+
+- **Per-file path:** stack only — `unsigned char buf[FILE_TOTO_BUF_SIZE]` for the
+  content prefix; stack description buffer `char desc[FILE_TOTO_DESC_CAP]`.
+- No heap in the classify / identify path.
+- No `realloc` in-tree. Avoid `malloc` unless an explicitly justified pre-loop
+  need appears (none in the baseline design).
+
+## I/O rules (`file_toto_identify.c`)
+
+- `open` / `read` / `close` (and `stat` / `lstat`) for classification input.
+- Result lines go to stdout via `write(STDOUT_FILENO, …)` with partial-write and
+  `EINTR` retry — not `printf` / `fprintf` / `puts` / `fputs` / `fwrite`.
+- `read()` and `write()` byte counts must **never** be ignored.
+- Do not ignore `EINTR` on `read`/`write` — retry.
+
+## Errors
+
+- **stderr only** for true diagnostics: `file-toto: <context>: <strerror(errno)>`
+- Cannot-open / unreadable file messages that POSIX/`file(1)` print as the
+  classification result belong on **stdout** as the result line (see
+  `implementation.mdc`), not as a substitute for stderr errno diagnostics.
+- Implemented in `file_toto_emit.c` for stderr; result formatting in identify.
+
+## Comments
+
+- Chain-of-thought block at top of each `src/*.c` and test file (see existing
+  files once present).
+- Contract comments on non-trivial functions: preconditions, postconditions,
+  return value, error behaviour.
+- Comment non-obvious decisions (buffer size, magic order, platform guards);
+  not obvious code.
+
+## Tests
+
+- Plain `assert()` — no external test framework.
+- One scenario per `tests/test_classify_*.c`; runner in `tests/test_runner.c`.
+- Print `PASS: <name>` on success.
+
+## What not to do
+
+- Do not compile as C++.
+- Do not link libraries beyond libc (no libmagic, no zlib).
+- Do not use `gets`, unbounded `scanf`, or ignore `read()` / `write()` byte counts.
+- Do not add single-dash `-h` / `-v` as help/version aliases (meta flags are
+  `--help` / `--h` and `--version` / `--v` only; `-h` / `-L` are real `file`
+  options — see `project-overview.mdc`).
+- Do not load external magic databases (`-m`) unless explicitly requested.
+- Do not use stdio formatting in the identify/write-result path — project
+  standard is raw `write()`.

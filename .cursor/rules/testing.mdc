@@ -1,0 +1,90 @@
+---
+description: Unit test layout and conventions for file-toto (classify_content)
+globs: ["tests/**/*.c", "tests/**/*.h", "Makefile"]
+alwaysApply: false
+---
+
+# Testing — file-toto
+
+## Scope
+
+The Makefile `test` target builds and runs **`build/tests/test_core`** (or
+`build/tests/test_core.exe` on Windows).
+
+Tests cover **`classify_content()`** (and its magic/heuristic helpers) only.
+There are **no** subprocess/integration tests in-tree; `file_toto_run()`'s
+`open`/`stat`/`write` path is not unit-tested.
+
+## Layout
+
+| File | Role |
+|------|------|
+| `tests/test_runner.c` | `main()` — invokes all suites in fixed order |
+| `tests/test_classify_empty.c` / `.h` | `len == 0` → empty description / MIME |
+| `tests/test_classify_ascii_text.c` / `.h` | printable ASCII → text classification |
+| `tests/test_classify_elf.c` / `.h` | ELF magic prefix → executable/shared-object style type |
+| `tests/test_classify_png.c` / `.h` | PNG signature → PNG image type |
+| `tests/test_classify_pdf.c` / `.h` | `%PDF-` prefix → PDF type |
+| `tests/test_classify_binary_data.c` / `.h` | non-text bytes with no magic → data/binary fallback |
+| `tests/test_classify_mime_flag.c` / `.h` | same samples with MIME mode → `type/subtype` strings |
+
+One scenario per `.c` / `.h` pair; headers declare the test function for
+`test_runner.c`.
+
+## Framework
+
+- No external framework — plain C with `<assert.h>`.
+- Each case prints `PASS: <descriptive name>` on success.
+- `assert()` failure → `abort()` → non-zero exit from `make test`.
+
+## Build (from `Makefile`)
+
+Objects and the test binary live under `build/tests/`:
+
+```makefile
+TEST_CORE := build/tests/test_core
+# $(TEST_BUILD_DIR)/%.o ← tests/%.c
+# link $(TEST_CORE) from $(TEST_OBJS)
+test: $(TEST_CORE)
+	./$(TEST_CORE)
+```
+
+`classify_content()` comes from `#include "file_toto.h"` (and magic helpers as
+needed). Prefer **no link with `src/*.c`** when the helper is `static inline` in
+the header; if magic tables live in `file_toto_magic.c`, link **only** that
+translation unit — never `main.c`, `file_toto_identify.c`, `file_toto_cli.c`, or
+`file_toto_emit.c` unless a test truly needs emit.
+
+## Required cases (behaviour)
+
+1. Empty buffer: human description indicates empty; MIME path uses the empty
+   MIME chosen in `implementation.mdc`.
+2. ASCII text sample: classified as text (not binary data).
+3. ELF magic (`0x7F 'E' 'L' 'F'` …): matches ELF rule.
+4. PNG signature: matches PNG rule.
+5. PDF `%PDF-` prefix: matches PDF rule.
+6. Random binary with no signature: falls through to data/binary.
+7. MIME mode: descriptions are `type/subtype` form for the same fixtures.
+
+## Adding tests
+
+- Add `tests/test_classify_<name>.c` + `.h`, declare runner function in `.h`,
+  call from `test_runner.c`, append to `TEST_SRCS` in `Makefile`.
+- Keep tests allocation-free; stack buffers only.
+- Embed tiny byte fixtures in the test `.c` — do not read real files from disk
+  in unit tests.
+
+## Manual smoke tests (not automated)
+
+After `make`:
+
+```sh
+./build/file-toto --version
+./build/file-toto --help
+./build/file-toto README.md
+./build/file-toto -b README.md
+./build/file-toto -i README.md
+./build/file-toto /tmp           # expect directory
+./build/file-toto missing; echo $?    # expect 0, cannot-open on stdout
+./build/file-toto -E missing; echo $? # expect 1, diagnostic on stderr
+```
