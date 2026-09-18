@@ -1,0 +1,40 @@
+file-toto — C language standard and toolchain
+=============================================
+
+Program version : 1.0.0  (FILE_TOTO_VERSION_STRING in include/file_toto.h)
+
+C standard      : ISO/IEC 9899:2011 (C11)
+Compiler flag   : -std=c11
+
+Why C11
+-------
+- Project specification requires C11.
+- static inline classify_content() in include/file_toto.h.
+- Consistent, portable baseline across Linux and MSYS2 UCRT64 (MinGW-w64).
+- No C++ features; compiled as C only.
+
+POSIX feature macro
+-------------------
+-D_POSIX_C_SOURCE=200809L
+
+Exposes POSIX.1-2008 interfaces used on Linux, notably:
+  - open(2) / read(2) / write(2) / close(2)
+  - stat(2) / lstat(2)
+  - strerror(3)
+
+On Windows (_WIN32), after open() the identify path sets _O_BINARY so magic
+bytes are not corrupted by CRLF translation. Symlink classification uses
+lstat when available under MinGW; see platform guards in file_toto_identify.c.
+
+Classification
+--------------
+1. Filesystem metadata (directory, symlink, devices, empty, cannot-open)
+2. Embedded magic signatures (ELF, PE, PNG, JPEG, GIF, ZIP, PDF, …)
+3. ASCII/text vs data heuristic via classify_content()
+
+No libmagic; no external magic database. libc only.
+
+Build
+-----
+  make / make debug / make test / make clean / make install
+Artefacts under build/ (build/file-toto, build/tests/test_core).
