@@ -36,7 +36,7 @@ pacman -S make mingw-w64-ucrt-x86_64-gcc   # once
 make clean && make && make test
 ```
 
-Git Bash needs `/c/msys64/ucrt64/bin` early on `PATH` (before Anaconda).
+Git Bash needs `/c/msys64/ucrt64/bin` early on `PATH`.
 The native `.exe` runs in UCRT64, Git Bash, cmd, and PowerShell.
 
 ## Usage
