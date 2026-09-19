@@ -84,7 +84,7 @@ LICENSE.txt
 c_version.txt
 Makefile
 README.md
-include/          file_toto.h + file_toto_*.h
+include/          file_toto.h + file_toto_{emit,magic,identify,cli}.h
 src/              main.c + file_toto_{emit,identify,magic,cli}.c
 tests/            test_runner.c + test_classify_*.c -> build/tests/test_core
 build/            objects/binaries; dirs via .gitkeep, artefacts gitignored

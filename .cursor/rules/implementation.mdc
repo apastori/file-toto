@@ -10,9 +10,10 @@ alwaysApply: false
 
 | Path | Role |
 |------|------|
-| `include/file_toto.h` | `FILE_TOTO_BUF_SIZE` (8192), `FILE_TOTO_DESC_CAP`, `FILE_TOTO_VERSION_STRING`, `FILE_TOTO_EXIT_*` enum, `file_toto_opts_t`, `classify_content()` (`static inline`), `file_toto_run()` declaration |
+| `include/file_toto.h` | `FILE_TOTO_BUF_SIZE` (8192), `FILE_TOTO_DESC_CAP`, `FILE_TOTO_VERSION_STRING`, `FILE_TOTO_EXIT_*` enum, `file_toto_opts_t`, `classify_content()` (`static inline`) |
 | `include/file_toto_emit.h` | `file_toto_emit_error()`, `file_toto_emit_bad_flag()` |
 | `include/file_toto_magic.h` | Embedded magic table accessors / `match_magic()` helpers used by `classify_content()` |
+| `include/file_toto_identify.h` | `file_toto_run()` declaration |
 | `include/file_toto_cli.h` | `parse_flags()`, `print_help()`, `print_version()` |
 | `src/main.c` | `main()` only — dispatch help/version, parse flags, collect operands, call `file_toto_run()` |
 | `src/file_toto_emit.c` | stderr diagnostics: `file-toto: <context>: <strerror(errno)>` |
@@ -171,4 +172,5 @@ stdout only.
 
 ## Naming
 
-Public run entry point: **`file_toto_run()`** (not bare `run`).
+Public run entry point: **`file_toto_run()`** (declared in
+`include/file_toto_identify.h`, defined in `src/file_toto_identify.c`).

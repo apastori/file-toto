@@ -69,6 +69,7 @@ file-toto/
 │   ├── file_toto.h
 │   ├── file_toto_emit.h
 │   ├── file_toto_magic.h
+│   ├── file_toto_identify.h
 │   └── file_toto_cli.h
 ├── src/
 │   ├── main.c

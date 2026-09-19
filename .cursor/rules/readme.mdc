@@ -42,7 +42,7 @@ Keep `README.md` user-focused. Align with `project-overview.mdc` and
 
 5. **Layout** — brief tree matching actual repo (include `LICENSE.txt`,
    `c_version.txt`):
-   - `include/file_toto.h` + `file_toto_*.h`
+   - `include/file_toto.h` + `file_toto_{emit,magic,identify,cli}.h`
    - `src/main.c` + `file_toto_{emit,identify,magic,cli}.c`
    - `tests/test_runner.c` + `test_classify_*.c` → binary `build/tests/test_core`
    - `build/` — object/binary output; dirs kept via `.gitkeep`, artefacts

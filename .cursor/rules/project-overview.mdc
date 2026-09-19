@@ -82,7 +82,7 @@ At least one file operand is required (after flags).
 ## Project Layout (summary)
 
 ```
-include/   — file_toto.h + file_toto_{emit,magic,cli}.h
+include/   — file_toto.h + file_toto_{emit,magic,identify,cli}.h
 src/       — main.c + file_toto_{emit,identify,magic,cli}.c
 tests/     — test_runner.c + test_classify_*.c / .h
 build/     — objects + binaries; dirs via .gitkeep, artefacts gitignored
