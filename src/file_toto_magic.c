@@ -4,20 +4,13 @@
  * 1. Responsibility: embedded magic signatures + ASCII text heuristic.
  * 2. Syscalls: none — pure byte inspection.
  * 3. Heap: none — static magic table of string pointers.
- * 4. Classify: longest / most specific signature first in table order.
+ * 4. Cl,assify: longest / most specific signature first in table order.
  * 5. C11.
  */
 
 #include "file_toto_magic.h"
 
 #include <string.h>
-
-typedef struct {
-    const unsigned char *sig;
-    size_t sig_len;
-    const char *human;
-    const char *mime;
-} magic_entry_t;
 
 /* Longest / most specific entries first where prefixes overlap. */
 static const unsigned char SIG_PNG[] = {

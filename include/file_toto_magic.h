@@ -4,6 +4,17 @@
 #include <stddef.h>
 
 /*
+ * One compiled-in magic signature: bytes to match, then human / MIME labels.
+ * Used by the table in file_toto_magic.c.
+ */
+typedef struct {
+    const unsigned char *sig;
+    size_t sig_len;
+    const char *human;
+    const char *mime;
+} magic_entry_t;
+
+/*
  * match_magic — try embedded signatures against buf[0..len).
  *
  * On match: write human or MIME description into out, return 0.
