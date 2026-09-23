@@ -50,23 +50,30 @@ typedef struct {
 static inline int classify_content(const unsigned char *buf, size_t len,
                                    int mime, char *out, size_t out_cap)
 {
-    const char *desc;
+    const char *desc = NULL;
 
     if (out == NULL || out_cap < 1u) {
         return -1;
     }
 
-    if (len == 0u) {
-        desc = mime ? "inode/x-empty" : "empty";
-    } else if (match_magic(buf, len, mime, out, out_cap) == 0) {
-        return 0;
-    } else if (file_toto_is_ascii_text(buf, len)) {
-        desc = mime ? "text/plain" : "ASCII text";
-    } else if (file_toto_is_utf8_text(buf, len)) {
-        desc = mime ? "text/plain" : "UTF-8 Unicode text";
-    } else {
+    do {
+        if (len == 0u) {
+            desc = mime ? "inode/x-empty" : "empty";
+            break;
+        }
+        if (match_magic(buf, len, mime, out, out_cap) == 0) {
+            return 0;
+        }
+        if (file_toto_is_ascii_text(buf, len)) {
+            desc = mime ? "text/plain" : "ASCII text";
+            break;
+        }
+        if (file_toto_is_utf8_text(buf, len)) {
+            desc = mime ? "text/plain" : "UTF-8 Unicode text";
+            break;
+        }
         desc = mime ? "application/octet-stream" : "data";
-    }
+    } while (0);
 
     if (strlen(desc) + 1u > out_cap) {
         return -1;

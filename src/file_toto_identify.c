@@ -125,14 +125,17 @@ static void fs_type_desc(const struct stat *st, int mime, char *out,
     const char *h;
     const char *m;
 
+    // check if the file is a directory
     if (S_ISDIR(st->st_mode)) {
         h = "directory";
         m = "inode/directory";
+    // check if the file is a symbolic link
 #if defined(S_ISLNK)
     } else if (S_ISLNK(st->st_mode)) {
         h = "symbolic link";
         m = "inode/symlink";
 #endif
+    // check if the file is a fifo
 #if defined(S_ISFIFO)
     } else if (S_ISFIFO(st->st_mode)) {
         h = "fifo";
@@ -165,6 +168,7 @@ static void fs_type_desc(const struct stat *st, int mime, char *out,
         out[0] = '\0';
         return;
     }
+    
     {
         const char *d = mime ? m : h;
         size_t n = strlen(d);
@@ -172,12 +176,14 @@ static void fs_type_desc(const struct stat *st, int mime, char *out,
             out[0] = '\0';
             return;
         }
+        // copy the description to the output buffer
         memcpy(out, d, n + 1u);
     }
 }
 
 static ssize_t read_prefix(int fd, unsigned char *buf, size_t cap)
 {
+    // keep track of the offset (bytes already written)
     size_t off = 0u;
 
     while (off < cap) {
@@ -206,6 +212,7 @@ static int process_one_file(const char *path, const file_toto_opts_t *opts)
     int fd;
     ssize_t nread;
 
+    // Get the file information
     if (do_stat(path, opts->dereference, &st) != 0) {
         if (opts->fatal_errors) {
             file_toto_emit_error(path);
@@ -216,14 +223,17 @@ static int process_one_file(const char *path, const file_toto_opts_t *opts)
             const char *err = strerror(errno);
             size_t n = 0u;
             const char *p = "cannot open (";
+            // Manually copy string cannot open ( to the buffer
             while (*p && n + 1u < sizeof msg) {
                 msg[n++] = *p++;
             }
+            // Manually copy string error message to the buffer from Standard Error
             if (err) {
                 while (*err && n + 1u < sizeof msg) {
                     msg[n++] = *err++;
                 }
             }
+            // Manually copy string ")" and null terminator to the buffer
             if (n + 2u < sizeof msg) {
                 msg[n++] = ')';
                 msg[n] = '\0';
@@ -255,14 +265,17 @@ static int process_one_file(const char *path, const file_toto_opts_t *opts)
             const char *err = strerror(errno);
             size_t n = 0u;
             const char *p = "cannot open (";
+            // Manually copy string cannot open ( to the buffer
             while (*p && n + 1u < sizeof msg) {
                 msg[n++] = *p++;
             }
+            // Manually copy string error message to the buffer from Standard Error
             if (err) {
                 while (*err && n + 1u < sizeof msg) {
                     msg[n++] = *err++;
                 }
             }
+            // Manually copy string ")" and null terminator to the buffer
             if (n + 2u < sizeof msg) {
                 msg[n++] = ')';
                 msg[n] = '\0';
@@ -274,14 +287,16 @@ static int process_one_file(const char *path, const file_toto_opts_t *opts)
         return FILE_TOTO_EXIT_OK;
     }
 
+    // Set the binary mode of the file
     if (set_binary_mode(fd) != 0) {
         file_toto_emit_error(path);
         close(fd);
         return FILE_TOTO_EXIT_ERR;
     }
-
+    // Read the prefix of the file
     nread = read_prefix(fd, buf, FILE_TOTO_BUF_SIZE);
     if (nread < 0) {
+        // Save the error before close syscall
         int saved = errno;
         close(fd);
         errno = saved;
@@ -294,14 +309,17 @@ static int process_one_file(const char *path, const file_toto_opts_t *opts)
             const char *err = strerror(errno);
             size_t n = 0u;
             const char *p = "cannot read (";
+            // Manually copy string cannot read ( to the buffer
             while (*p && n + 1u < sizeof msg) {
                 msg[n++] = *p++;
             }
+            // Manually copy string error message to the buffer from Standard Error
             if (err) {
                 while (*err && n + 1u < sizeof msg) {
                     msg[n++] = *err++;
                 }
             }
+            // Manually copy string ")" and null terminator to the buffer
             if (n + 2u < sizeof msg) {
                 msg[n++] = ')';
                 msg[n] = '\0';
