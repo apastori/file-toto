@@ -36,6 +36,8 @@ int file_toto_is_ascii_text(const unsigned char *buf, size_t len);
  * file_toto_is_utf8_text — 1 if buf is valid UTF-8 text (allows TAB/LF/CR and
  * printable ASCII plus well-formed multibyte sequences; rejects C0 controls
  * other than TAB/LF/CR and overlong/invalid sequences). Empty => 0.
+ * A multibyte sequence cut off by the end of buf is accepted (buf may be a
+ * file prefix).
  */
 int file_toto_is_utf8_text(const unsigned char *buf, size_t len);
 

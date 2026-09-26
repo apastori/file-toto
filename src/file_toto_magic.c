@@ -1,10 +1,10 @@
 /*
  * Chain-of-thought (Step 1 — file scope):
  *
- * 1. Responsibility: embedded magic signatures + ASCII text heuristic.
+ * 1. Responsibility: embedded magic signatures + ASCII / UTF-8 text heuristics.
  * 2. Syscalls: none — pure byte inspection.
  * 3. Heap: none — static magic table of string pointers.
- * 4. Cl,assify: longest / most specific signature first in table order.
+ * 4. Classify: longest / most specific signature first in table order.
  * 5. C11.
  */
 
@@ -106,6 +106,24 @@ int file_toto_is_ascii_text(const unsigned char *buf, size_t len)
     return 1;
 }
 
+/*
+ * continuations_ok — 1 if every continuation byte of the n-byte sequence
+ * starting at buf[i] that lies inside buf[0..len) has the form 10xxxxxx;
+ * otherwise 0. Bytes past len are not inspected.
+ */
+static int continuations_ok(const unsigned char *buf, size_t len,
+                            size_t i, size_t n)
+{
+    size_t k;
+
+    for (k = 1u; k < n && i + k < len; k++) {
+        if ((buf[i + k] & 0xC0u) != 0x80u) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 int file_toto_is_utf8_text(const unsigned char *buf, size_t len)
 {
     size_t i = 0u;
@@ -127,7 +145,7 @@ int file_toto_is_utf8_text(const unsigned char *buf, size_t len)
             i++;
             continue;
         }
-        /* Reject other C0 controls and DEL / C1 as leading bytes. */
+        /* Reject other C0 controls and DEL. */
         if (c < 0x80u) {
             return 0;
         }
@@ -136,8 +154,15 @@ int file_toto_is_utf8_text(const unsigned char *buf, size_t len)
         do {
             // check if the character is a leading byte of a 2-byte UTF-8 character
             if ((c & 0xE0u) == 0xC0u) {
-                if (c < 0xC2u || i + 1u >= len) {
+                if (c < 0xC2u) {
                     return 0;
+                }
+                /*
+                 * buf may be a truncated prefix of a larger file: a sequence
+                 * cut off only by the end of buf is accepted.
+                 */
+                if (i + 1u >= len) {
+                    return 1;
                 }
                 if ((buf[i + 1u] & 0xC0u) != 0x80u) {
                     return 0;
@@ -147,38 +172,39 @@ int file_toto_is_utf8_text(const unsigned char *buf, size_t len)
             }
             // check if the character is a leading byte of a 3-byte UTF-8 character
             if ((c & 0xF0u) == 0xE0u) {
-                if (i + 2u >= len) {
+                if (!continuations_ok(buf, len, i, 3u)) {
                     return 0;
                 }
-                if ((buf[i + 1u] & 0xC0u) != 0x80u
-                    || (buf[i + 2u] & 0xC0u) != 0x80u) {
+                /* Reject overlong forms and UTF-16 surrogates. */
+                if (i + 1u < len && c == 0xE0u && buf[i + 1u] < 0xA0u) {
                     return 0;
                 }
-                /* Reject overlong and surrogate halves coarsely. */
-                if (c == 0xE0u && buf[i + 1u] < 0xA0u) {
+                if (i + 1u < len && c == 0xEDu && buf[i + 1u] >= 0xA0u) {
                     return 0;
                 }
-                if (c == 0xEDu && buf[i + 1u] >= 0xA0u) {
-                    return 0;
+                if (i + 3u > len) {
+                    return 1;
                 }
                 i += 3u;
                 break;
             }
             // check if the character is a leading byte of a 4-byte UTF-8 character
             if ((c & 0xF8u) == 0xF0u) {
-                if (c > 0xF4u || i + 3u >= len) {
+                if (c > 0xF4u) {
                     return 0;
                 }
-                if ((buf[i + 1u] & 0xC0u) != 0x80u
-                    || (buf[i + 2u] & 0xC0u) != 0x80u
-                    || (buf[i + 3u] & 0xC0u) != 0x80u) {
+                if (!continuations_ok(buf, len, i, 4u)) {
                     return 0;
                 }
-                if (c == 0xF0u && buf[i + 1u] < 0x90u) {
+                /* Reject overlong forms and code points above U+10FFFF. */
+                if (i + 1u < len && c == 0xF0u && buf[i + 1u] < 0x90u) {
                     return 0;
                 }
-                if (c == 0xF4u && buf[i + 1u] >= 0x90u) {
+                if (i + 1u < len && c == 0xF4u && buf[i + 1u] >= 0x90u) {
                     return 0;
+                }
+                if (i + 4u > len) {
+                    return 1;
                 }
                 i += 4u;
                 break;
