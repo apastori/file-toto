@@ -94,9 +94,11 @@ int file_toto_is_ascii_text(const unsigned char *buf, size_t len)
     }
     for (i = 0u; i < len; i++) {
         unsigned char c = buf[i];
+        // check if the character is a tab, newline, or carriage return ASCII control characters
         if (c == '\t' || c == '\n' || c == '\r') {
             continue;
         }
+        // check if the character is a printable ASCII character
         if (c < 0x20u || c > 0x7Eu) {
             return 0;
         }
@@ -115,10 +117,12 @@ int file_toto_is_utf8_text(const unsigned char *buf, size_t len)
     while (i < len) {
         unsigned char c = buf[i];
 
+        // check if the character is a tab, newline, or carriage return ASCII control characters
         if (c == '\t' || c == '\n' || c == '\r') {
             i++;
             continue;
         }
+        // check if the character is a printable ASCII character
         if (c >= 0x20u && c <= 0x7Eu) {
             i++;
             continue;
@@ -128,50 +132,60 @@ int file_toto_is_utf8_text(const unsigned char *buf, size_t len)
             return 0;
         }
 
-        /* Multibyte UTF-8 */
-        if ((c & 0xE0u) == 0xC0u) {
-            if (c < 0xC2u || i + 1u >= len) {
-                return 0;
+        /* One multibyte UTF-8 sequence */
+        do {
+            // check if the character is a leading byte of a 2-byte UTF-8 character
+            if ((c & 0xE0u) == 0xC0u) {
+                if (c < 0xC2u || i + 1u >= len) {
+                    return 0;
+                }
+                if ((buf[i + 1u] & 0xC0u) != 0x80u) {
+                    return 0;
+                }
+                i += 2u;
+                break;
             }
-            if ((buf[i + 1u] & 0xC0u) != 0x80u) {
-                return 0;
+            // check if the character is a leading byte of a 3-byte UTF-8 character
+            if ((c & 0xF0u) == 0xE0u) {
+                if (i + 2u >= len) {
+                    return 0;
+                }
+                if ((buf[i + 1u] & 0xC0u) != 0x80u
+                    || (buf[i + 2u] & 0xC0u) != 0x80u) {
+                    return 0;
+                }
+                /* Reject overlong and surrogate halves coarsely. */
+                if (c == 0xE0u && buf[i + 1u] < 0xA0u) {
+                    return 0;
+                }
+                if (c == 0xEDu && buf[i + 1u] >= 0xA0u) {
+                    return 0;
+                }
+                i += 3u;
+                break;
             }
-            i += 2u;
-        } else if ((c & 0xF0u) == 0xE0u) {
-            if (i + 2u >= len) {
-                return 0;
+            // check if the character is a leading byte of a 4-byte UTF-8 character
+            if ((c & 0xF8u) == 0xF0u) {
+                if (c > 0xF4u || i + 3u >= len) {
+                    return 0;
+                }
+                if ((buf[i + 1u] & 0xC0u) != 0x80u
+                    || (buf[i + 2u] & 0xC0u) != 0x80u
+                    || (buf[i + 3u] & 0xC0u) != 0x80u) {
+                    return 0;
+                }
+                if (c == 0xF0u && buf[i + 1u] < 0x90u) {
+                    return 0;
+                }
+                if (c == 0xF4u && buf[i + 1u] >= 0x90u) {
+                    return 0;
+                }
+                i += 4u;
+                break;
             }
-            if ((buf[i + 1u] & 0xC0u) != 0x80u
-                || (buf[i + 2u] & 0xC0u) != 0x80u) {
-                return 0;
-            }
-            /* Reject overlong and surrogate halves coarsely. */
-            if (c == 0xE0u && buf[i + 1u] < 0xA0u) {
-                return 0;
-            }
-            if (c == 0xEDu && buf[i + 1u] >= 0xA0u) {
-                return 0;
-            }
-            i += 3u;
-        } else if ((c & 0xF8u) == 0xF0u) {
-            if (c > 0xF4u || i + 3u >= len) {
-                return 0;
-            }
-            if ((buf[i + 1u] & 0xC0u) != 0x80u
-                || (buf[i + 2u] & 0xC0u) != 0x80u
-                || (buf[i + 3u] & 0xC0u) != 0x80u) {
-                return 0;
-            }
-            if (c == 0xF0u && buf[i + 1u] < 0x90u) {
-                return 0;
-            }
-            if (c == 0xF4u && buf[i + 1u] >= 0x90u) {
-                return 0;
-            }
-            i += 4u;
-        } else {
+            // reject other leading bytes
             return 0;
-        }
+        } while (0);
     }
     return 1;
 }
