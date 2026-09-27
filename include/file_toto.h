@@ -17,8 +17,12 @@
 #include <stddef.h>
 #include <string.h>
 
-/* Content prefix read size (64 KiB, as real file's encoding limit). */
-#define FILE_TOTO_BUF_SIZE 65536u
+/*
+ * Content prefix read size (64 KiB, as real file's encoding limit).
+ * The size_t cast makes the multiplication happen in size_t, so it cannot
+ * wrap on a platform where unsigned int is only 16 bits.
+ */
+#define FILE_TOTO_BUF_SIZE ((size_t)64u * 1024u)
 
 /* Stack capacity for one description string including NUL. */
 #define FILE_TOTO_DESC_CAP 256u
