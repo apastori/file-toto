@@ -10,7 +10,7 @@ alwaysApply: false
 
 | Path | Role |
 |------|------|
-| `include/file_toto.h` | `FILE_TOTO_BUF_SIZE` (8192), `FILE_TOTO_DESC_CAP`, `FILE_TOTO_VERSION_STRING`, `FILE_TOTO_EXIT_*` enum, `file_toto_opts_t`, `classify_content()` (`static inline`) |
+| `include/file_toto.h` | `FILE_TOTO_BUF_SIZE` (65536), `FILE_TOTO_DESC_CAP`, `FILE_TOTO_VERSION_STRING`, `FILE_TOTO_EXIT_*` enum, `file_toto_opts_t`, `classify_content()` (`static inline`) |
 | `include/file_toto_emit.h` | `file_toto_emit_error()`, `file_toto_emit_bad_flag()` |
 | `include/file_toto_magic.h` | Embedded magic table accessors / `match_magic()` helpers used by `classify_content()` |
 | `include/file_toto_identify.h` | `file_toto_run()` declaration |
@@ -32,12 +32,16 @@ when adding files.
 MinGW builds define `_WIN32`; symlink/`lstat` and binary-mode opens are guarded
 there (see below).
 
-## Buffer size (8 KiB prefix)
+## Buffer size (64 KiB prefix)
 
-`FILE_TOTO_BUF_SIZE` is **8192** bytes.
+`FILE_TOTO_BUF_SIZE` is **65536** bytes.
 
-Rationale: enough to cover common magic signatures and a useful text/binary
-sample without reading whole files; amortises one `read()` per regular file.
+Rationale: matches real `file`'s default `encoding` limit (65K bytes examined
+for text / encoding detection), covers every embedded magic signature, and
+avoids reading whole files. It stays on the stack, well under the default
+Linux (8 MiB) and Windows / MinGW (2 MiB) main-thread stack sizes. Real
+`file`'s 1 MiB `bytes` limit is deliberately not matched: it would need a
+non-stack buffer.
 
 `FILE_TOTO_DESC_CAP` is the stack capacity for a single human-readable or MIME
 description string (including NUL). Keep descriptions short; do not grow via heap.

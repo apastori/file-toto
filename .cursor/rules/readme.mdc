@@ -14,7 +14,7 @@ Keep `README.md` user-focused. Align with `project-overview.mdc` and
 1. **Title & description** — Unix `file`-like; classifies each path operand
    (filesystem tests → embedded magic → text/data heuristic); prints one result
    line per operand on stdout. **No** libmagic; **no** external magic DB.
-   Content prefix read size: 8 KiB (`FILE_TOTO_BUF_SIZE`).
+   Content prefix read size: 64 KiB (`FILE_TOTO_BUF_SIZE`).
 
 2. **Build**
    - `make`, `make debug`, `make test`, `make clean`, optional `make install`

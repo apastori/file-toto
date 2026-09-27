@@ -17,8 +17,8 @@
 #include <stddef.h>
 #include <string.h>
 
-/* Content prefix read size (8 KiB). */
-#define FILE_TOTO_BUF_SIZE 8192u
+/* Content prefix read size (64 KiB, as real file's encoding limit). */
+#define FILE_TOTO_BUF_SIZE 65536u
 
 /* Stack capacity for one description string including NUL. */
 #define FILE_TOTO_DESC_CAP 256u
