@@ -1,8 +1,9 @@
 # file-toto
 
 Unix `file`-like CLI: classifies each path operand using filesystem tests,
-then embedded magic on a 64 KiB content prefix (`FILE_TOTO_BUF_SIZE`), then a
-text/data heuristic. Prints one result line per operand on stdout.
+then embedded magic on a 64 KiB content prefix (`FILE_TOTO_BUF_SIZE`) and the
+last 512 bytes of the file (`FILE_TOTO_TAIL_SIZE`), then a text/data heuristic.
+Prints one result line per operand on stdout.
 
 No libmagic and no external magic database - libc only.
 
