@@ -17,7 +17,7 @@ void test_classify_binary_data(void)
     char out[FILE_TOTO_DESC_CAP];
     int r;
 
-    r = classify_content(blob, sizeof blob, 0, out, sizeof out);
+    r = classify_content(blob, sizeof blob, NULL, 0u, 0, out, sizeof out);
     assert(r == 0);
     assert(strcmp(out, "data") == 0);
 

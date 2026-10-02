@@ -15,7 +15,7 @@ void test_classify_pdf(void)
     char out[FILE_TOTO_DESC_CAP];
     int r;
 
-    r = classify_content(pdf, sizeof pdf - 1u, 0, out, sizeof out);
+    r = classify_content(pdf, sizeof pdf - 1u, NULL, 0u, 0, out, sizeof out);
     assert(r == 0);
     assert(strcmp(out, "PDF document") == 0);
 

@@ -14,11 +14,11 @@ void test_classify_empty(void)
     char out[FILE_TOTO_DESC_CAP];
     int r;
 
-    r = classify_content(NULL, 0u, 0, out, sizeof out);
+    r = classify_content(NULL, 0u, NULL, 0u, 0, out, sizeof out);
     assert(r == 0);
     assert(strcmp(out, "empty") == 0);
 
-    r = classify_content(NULL, 0u, 1, out, sizeof out);
+    r = classify_content(NULL, 0u, NULL, 0u, 1, out, sizeof out);
     assert(r == 0);
     assert(strcmp(out, "inode/x-empty") == 0);
 

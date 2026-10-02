@@ -23,22 +23,27 @@ void test_classify_mime_flag(void)
 
     (void)empty_ignored;
 
-    assert(classify_content(NULL, 0u, 1, out, sizeof out) == 0);
+    assert(classify_content(NULL, 0u, NULL, 0u, 1, out, sizeof out) == 0);
     assert(strcmp(out, "inode/x-empty") == 0);
 
-    assert(classify_content(text, sizeof text - 1u, 1, out, sizeof out) == 0);
+    assert(classify_content(text, sizeof text - 1u, NULL, 0u, 1, out,
+                            sizeof out) == 0);
     assert(strcmp(out, "text/plain") == 0);
 
-    assert(classify_content(elf, sizeof elf, 1, out, sizeof out) == 0);
+    assert(classify_content(elf, sizeof elf, NULL, 0u, 1, out,
+                            sizeof out) == 0);
     assert(strcmp(out, "application/x-executable") == 0);
 
-    assert(classify_content(png, sizeof png, 1, out, sizeof out) == 0);
+    assert(classify_content(png, sizeof png, NULL, 0u, 1, out,
+                            sizeof out) == 0);
     assert(strcmp(out, "image/png") == 0);
 
-    assert(classify_content(pdf, sizeof pdf - 1u, 1, out, sizeof out) == 0);
+    assert(classify_content(pdf, sizeof pdf - 1u, NULL, 0u, 1, out,
+                            sizeof out) == 0);
     assert(strcmp(out, "application/pdf") == 0);
 
-    assert(classify_content(blob, sizeof blob, 1, out, sizeof out) == 0);
+    assert(classify_content(blob, sizeof blob, NULL, 0u, 1, out,
+                            sizeof out) == 0);
     assert(strcmp(out, "application/octet-stream") == 0);
 
     printf("PASS: classify MIME mode type/subtype\n");

@@ -15,7 +15,8 @@ void test_classify_ascii_text(void)
     char out[FILE_TOTO_DESC_CAP];
     int r;
 
-    r = classify_content(sample, sizeof sample - 1u, 0, out, sizeof out);
+    r = classify_content(sample, sizeof sample - 1u, NULL, 0u, 0, out,
+                         sizeof out);
     assert(r == 0);
     assert(strcmp(out, "ASCII text") == 0);
 

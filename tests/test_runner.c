@@ -10,6 +10,11 @@
 #include "test_classify_pdf.h"
 #include "test_classify_binary_data.h"
 #include "test_classify_mime_flag.h"
+#include "test_classify_tar.h"
+#include "test_classify_iso9660.h"
+#include "test_classify_mp4.h"
+#include "test_classify_pe.h"
+#include "test_classify_dmg_tail.h"
 
 int main(void)
 {
@@ -20,5 +25,10 @@ int main(void)
     test_classify_pdf();
     test_classify_binary_data();
     test_classify_mime_flag();
+    test_classify_tar();
+    test_classify_iso9660();
+    test_classify_mp4();
+    test_classify_pe();
+    test_classify_dmg_tail();
     return 0;
 }

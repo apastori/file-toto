@@ -18,7 +18,7 @@ void test_classify_png(void)
     char out[FILE_TOTO_DESC_CAP];
     int r;
 
-    r = classify_content(png, sizeof png, 0, out, sizeof out);
+    r = classify_content(png, sizeof png, NULL, 0u, 0, out, sizeof out);
     assert(r == 0);
     assert(strcmp(out, "PNG image data") == 0);
 
