@@ -39,7 +39,12 @@ TEST_SRCS := tests/test_runner.c \
 	tests/test_classify_png.c \
 	tests/test_classify_pdf.c \
 	tests/test_classify_binary_data.c \
-	tests/test_classify_mime_flag.c
+	tests/test_classify_mime_flag.c \
+	tests/test_classify_tar.c \
+	tests/test_classify_iso9660.c \
+	tests/test_classify_mp4.c \
+	tests/test_classify_pe.c \
+	tests/test_classify_dmg_tail.c
 
 TEST_HDRS := $(wildcard tests/*.h)
 
