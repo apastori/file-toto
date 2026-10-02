@@ -5,7 +5,8 @@
  *    version, exit codes, option struct, classify_content().
  * 2. Syscalls: none in this header. classify_content() only examines bytes.
  * 3. Heap: none. Stack description buffers sized by FILE_TOTO_DESC_CAP.
- * 4. Classify strategy: magic first (match_magic), then text vs data.
+ * 4. Classify strategy: magic first (match_magic, on the prefix and the
+ *    tail), then text vs data.
  * 5. Standard: C11 — static inline, size_t from stddef.h.
  */
 
@@ -23,6 +24,12 @@
  * wrap on a platform where unsigned int is only 16 bits.
  */
 #define FILE_TOTO_BUF_SIZE ((size_t)64u * 1024u)
+
+/*
+ * End-of-file read size for signatures stored at the end of a file
+ * (512 = size of the Apple DMG "koly" trailer).
+ */
+#define FILE_TOTO_TAIL_SIZE 512u
 
 /* Stack capacity for one description string including NUL. */
 #define FILE_TOTO_DESC_CAP 256u
@@ -47,11 +54,14 @@ typedef struct {
  * classify_content — pure content classifier (magic then text/data).
  *
  * Preconditions: buf non-NULL if len > 0; out != NULL; out_cap >= 1.
+ * tail / tail_len: the last tail_len bytes of the file (may point into buf);
+ * NULL / 0 when unknown, which only disables end-of-file signatures.
  * Postcondition: out is NUL-terminated on success.
  * Returns 0 on success, -1 if out_cap is too small.
  * len == 0 => "empty" / "inode/x-empty".
  */
 static inline int classify_content(const unsigned char *buf, size_t len,
+                                   const unsigned char *tail, size_t tail_len,
                                    int mime, char *out, size_t out_cap)
 {
     const char *desc = NULL;
@@ -65,7 +75,7 @@ static inline int classify_content(const unsigned char *buf, size_t len,
             desc = mime ? "inode/x-empty" : "empty";
             break;
         }
-        if (match_magic(buf, len, mime, out, out_cap) == 0) {
+        if (match_magic(buf, len, tail, tail_len, mime, out, out_cap) == 0) {
             return 0;
         }
         if (file_toto_is_ascii_text(buf, len)) {

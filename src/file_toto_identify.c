@@ -3,9 +3,10 @@
  *
  * 1. Responsibility: per-operand filesystem identify + content classify +
  *    write result lines to stdout.
- * 2. Syscalls: lstat/stat, open, read, close, write; Windows _setmode.
- * 3. Heap: none — stack buffers for prefix and description/line.
- * 4. Classify: FS types first, then classify_content() on prefix.
+ * 2. Syscalls: lstat/stat, open, read, lseek (tail), close, write;
+ *    Windows _setmode.
+ * 3. Heap: none — stack buffers for prefix, tail and description/line.
+ * 4. Classify: FS types first, then classify_content() on prefix + tail.
  * 5. C11 + POSIX.1-2008.
  */
 
@@ -204,11 +205,48 @@ static ssize_t read_prefix(int fd, unsigned char *buf, size_t cap)
     return (ssize_t)off;
 }
 
+/*
+ * load_tail — find the last bytes of the file (at most FILE_TOTO_TAIL_SIZE)
+ * for end-of-file signatures. Sets *tail and returns how many bytes it has.
+ *
+ * If the prefix already holds the whole file, the tail is the end of buf and
+ * no extra I/O happens. Otherwise seek to FILE_TOTO_TAIL_SIZE bytes before
+ * the end and read them into tail_buf.
+ * Any seek/read failure returns 0 (no tail): the tail only feeds optional
+ * end-of-file signatures, so it is never reported as an error.
+ */
+static size_t load_tail(int fd, off_t file_size, const unsigned char *buf,
+                        size_t nread, unsigned char *tail_buf,
+                        const unsigned char **tail)
+{
+    ssize_t n;
+    // If the prefix already holds the whole file, the tail is the end of buf and no extra I/O happens
+    if ((off_t)nread >= file_size) {
+        size_t keep = nread < FILE_TOTO_TAIL_SIZE ? nread : FILE_TOTO_TAIL_SIZE;
+        *tail = buf + (nread - keep);
+        return keep;
+    }
+    // Otherwise, seek to FILE_TOTO_TAIL_SIZE bytes before the end of the file and read the last bytes into tail_buf
+    *tail = NULL;
+    if (lseek(fd, -(off_t)FILE_TOTO_TAIL_SIZE, SEEK_END) < 0) {
+        return 0u;
+    }
+    n = read_prefix(fd, tail_buf, FILE_TOTO_TAIL_SIZE);
+    if (n <= 0) {
+        return 0u;
+    }
+    *tail = tail_buf;
+    return (size_t)n;
+}
+
 static int process_one_file(const char *path, const file_toto_opts_t *opts)
 {
     struct stat st;
     char desc[FILE_TOTO_DESC_CAP];
     unsigned char buf[FILE_TOTO_BUF_SIZE];
+    unsigned char tail_buf[FILE_TOTO_TAIL_SIZE];
+    const unsigned char *tail;
+    size_t tail_len;
     int fd;
     ssize_t nread;
 
@@ -330,9 +368,11 @@ static int process_one_file(const char *path, const file_toto_opts_t *opts)
         }
         return FILE_TOTO_EXIT_OK;
     }
+    // Get the last bytes of the file for end-of-file signatures
+    tail_len = load_tail(fd, st.st_size, buf, (size_t)nread, tail_buf, &tail);
     close(fd);
 
-    if (classify_content(buf, (size_t)nread, opts->mime, desc,
+    if (classify_content(buf, (size_t)nread, tail, tail_len, opts->mime, desc,
                         sizeof desc) != 0) {
         file_toto_emit_msg("description buffer too small");
         return FILE_TOTO_EXIT_ERR;

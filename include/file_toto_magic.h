@@ -4,10 +4,17 @@
 #include <stddef.h>
 
 /*
- * One compiled-in magic signature: bytes to match, then human / MIME labels.
- * Used by the table in file_toto_magic.c.
+ * One compiled-in magic signature: where it sits, bytes to match, then
+ * human / MIME labels. Used by the table in file_toto_magic.c.
+ *
+ * from_end == 0: the signature starts offset bytes after the start of the
+ *                file and is looked for in the prefix.
+ * from_end == 1: the signature starts offset bytes before the end of the
+ *                file and is looked for in the tail.
  */
 typedef struct {
+    size_t offset;
+    int from_end;
     const unsigned char *sig;
     size_t sig_len;
     const char *human;
@@ -15,7 +22,9 @@ typedef struct {
 } magic_entry_t;
 
 /*
- * match_magic — try embedded signatures against buf[0..len).
+ * match_magic — try embedded signatures against the prefix buf[0..len) and
+ * the tail tail[0..tail_len) (the last tail_len bytes of the file; may be
+ * NULL / 0 when unknown), then the PE header check.
  *
  * On match: write human or MIME description into out, return 0.
  * On no match: return -1 (out unchanged).
@@ -23,8 +32,9 @@ typedef struct {
  *
  * Prefer longest / most specific signature when several could apply.
  */
-int match_magic(const unsigned char *buf, size_t len, int mime,
-                char *out, size_t out_cap);
+int match_magic(const unsigned char *buf, size_t len,
+                const unsigned char *tail, size_t tail_len,
+                int mime, char *out, size_t out_cap);
 
 /*
  * file_toto_is_ascii_text — 1 if all bytes are printable ASCII, TAB, LF, CR;
