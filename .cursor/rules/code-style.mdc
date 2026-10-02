@@ -46,7 +46,8 @@ is the spec name for the inline classification helper.
 ## Memory
 
 - **Per-file path:** stack only — `unsigned char buf[FILE_TOTO_BUF_SIZE]` for the
-  content prefix; stack description buffer `char desc[FILE_TOTO_DESC_CAP]`.
+  content prefix; `unsigned char tail_buf[FILE_TOTO_TAIL_SIZE]` for the end of
+  the file; stack description buffer `char desc[FILE_TOTO_DESC_CAP]`.
 - No heap in the classify / identify path.
 - No `realloc` in-tree. Avoid `malloc` unless an explicitly justified pre-loop
   need appears (none in the baseline design).

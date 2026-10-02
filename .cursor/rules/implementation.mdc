@@ -10,9 +10,9 @@ alwaysApply: false
 
 | Path | Role |
 |------|------|
-| `include/file_toto.h` | `FILE_TOTO_BUF_SIZE` (65536), `FILE_TOTO_DESC_CAP`, `FILE_TOTO_VERSION_STRING`, `FILE_TOTO_EXIT_*` enum, `file_toto_opts_t`, `classify_content()` (`static inline`) |
+| `include/file_toto.h` | `FILE_TOTO_BUF_SIZE` (65536), `FILE_TOTO_TAIL_SIZE` (512), `FILE_TOTO_DESC_CAP`, `FILE_TOTO_VERSION_STRING`, `FILE_TOTO_EXIT_*` enum, `file_toto_opts_t`, `classify_content()` (`static inline`) |
 | `include/file_toto_emit.h` | `file_toto_emit_error()`, `file_toto_emit_bad_flag()` |
-| `include/file_toto_magic.h` | Embedded magic table accessors / `match_magic()` helpers used by `classify_content()` |
+| `include/file_toto_magic.h` | `magic_entry_t` (signature at an offset from the start or from the end of the file) and `match_magic()` / text helpers used by `classify_content()` |
 | `include/file_toto_identify.h` | `file_toto_run()` declaration |
 | `include/file_toto_cli.h` | `parse_flags()`, `print_help()`, `print_version()` |
 | `src/main.c` | `main()` only — dispatch help/version, parse flags, collect operands, call `file_toto_run()` |
@@ -43,6 +43,13 @@ Linux (8 MiB) and Windows / MinGW (2 MiB) main-thread stack sizes. Real
 `file`'s 1 MiB `bytes` limit is deliberately not matched: it would need a
 non-stack buffer.
 
+`FILE_TOTO_TAIL_SIZE` is **512** bytes: the last bytes of the file, used only by
+end-of-file magic entries. 512 is the size of the Apple DMG `koly` trailer, the
+end-of-file signature in the table. Instead of reading more of the file,
+accuracy comes from reading the right places: signatures at fixed offsets
+inside the prefix, the PE header located through the pointer at `0x3C`, and
+this small tail.
+
 `FILE_TOTO_DESC_CAP` is the stack capacity for a single human-readable or MIME
 description string (including NUL). Keep descriptions short; do not grow via heap.
 
@@ -52,8 +59,10 @@ Mirror classic Unix `file(1)` test order — **first match wins**:
 
 1. **Filesystem tests** (`stat` / `lstat`): directory, symlink, fifo, socket,
    block/char device, empty regular file, missing/unreadable (result line).
-2. **Magic tests** on the read prefix: embedded signatures (ELF, PE, PNG, JPEG,
-   GIF, ZIP/jar, PDF, etc.).
+2. **Magic tests**: table entries whose signature sits at an offset from the
+   start of the file (checked in the prefix) or from the end (checked in the
+   tail), in table order; then the PE header check (`MZ` + pointer at `0x3C`
+   + `PE\0\0`), which falls back to MS-DOS executable.
 3. **Language / content heuristics**: ASCII/UTF-8 text vs “data” / binary.
 
 `classify_content()` is the pure, testable core for steps 2–3 (and empty /
@@ -71,7 +80,10 @@ for each operand:
     else: write stdout result line "<name>: cannot open …", keep exit 0
   if non-regular (dir, symlink without -L, etc.): write type from mode; continue
   open + read up to FILE_TOTO_BUF_SIZE (binary mode on Windows)
-  classify_content(buf, n, …) → description
+  tail: if the prefix reached EOF, the last FILE_TOTO_TAIL_SIZE bytes of buf
+        (no extra I/O); else one lseek to FILE_TOTO_TAIL_SIZE before the end
+        + read into a stack tail buffer. Any failure => no tail (not an error)
+  classify_content(buf, n, tail, tail_len, …) → description
   write result line to stdout
 ```
 
@@ -85,7 +97,11 @@ for each operand:
 In `include/file_toto.h` (or thin wrappers declared there, defined via magic
 header):
 
+- **Signature:** `classify_content(buf, len, tail, tail_len, mime, out, out_cap)`
 - **Precondition:** `buf` non-NULL if `len > 0`; `out` non-NULL; `out_cap >= 1`
+- **`tail` / `tail_len`:** the last `tail_len` bytes of the file (at most
+  `FILE_TOTO_TAIL_SIZE`); may point into `buf`; `NULL` / `0` when unknown, which
+  simply disables end-of-file entries
 - **Postcondition:** `out` holds a NUL-terminated description; return `0` on
   success, `-1` only if `out_cap` is too small (callers must size
   `FILE_TOTO_DESC_CAP` adequately — treat undersize as a programming error)
@@ -98,7 +114,10 @@ header):
 **Allowed:**
 
 - Stack `unsigned char buf[FILE_TOTO_BUF_SIZE]`
+- Stack `unsigned char tail_buf[FILE_TOTO_TAIL_SIZE]`
 - One `read()` (or short read loop to fill the prefix) per regular file
+- At most one extra `lseek()` + read for the tail, only when the prefix did not
+  reach EOF
 - `write(STDOUT_FILENO, …)` for each result line with partial-write / `EINTR` retry
 - Table-driven magic matching over the prefix
 
@@ -173,6 +192,16 @@ stdout only.
 - Compiled into `file_toto_magic.c` — **libc only**, no external DB.
 - Prefer longest / most specific match when multiple signatures could apply.
 - Keep the table small and documented; expand only when asked.
+- Each `magic_entry_t` has `offset` + `from_end`: `from_end == 0` means the
+  signature starts `offset` bytes after the start of the file (must lie inside
+  the prefix); `from_end == 1` means it starts `offset` bytes before the end
+  (must lie inside the tail).
+- Current table (in order): PNG, GIF89a, GIF87a, JPEG, ELF, PDF, ZIP (all at 0);
+  ISO Media `ftyp` at 4; POSIX tar `ustar` at 257; ISO 9660 `CD001` at 32769;
+  Apple DMG `koly` at 512 from the end.
+- PE is not a table entry: `match_pe()` runs after the table, reads the
+  little-endian `e_lfanew` at `0x3C`, and requires `PE\0\0` there (PE32 /
+  PE32+ from the optional-header magic); a bare `MZ` is MS-DOS executable.
 
 ## Naming
 

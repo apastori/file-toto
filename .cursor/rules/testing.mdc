@@ -27,6 +27,11 @@ There are **no** subprocess/integration tests in-tree; `file_toto_run()`'s
 | `tests/test_classify_pdf.c` / `.h` | `%PDF-` prefix → PDF type |
 | `tests/test_classify_binary_data.c` / `.h` | non-text bytes with no magic → data/binary fallback |
 | `tests/test_classify_mime_flag.c` / `.h` | same samples with MIME mode → `type/subtype` strings |
+| `tests/test_classify_tar.c` / `.h` | `ustar` at offset 257 → POSIX tar archive |
+| `tests/test_classify_iso9660.c` / `.h` | `CD001` at offset 32769 → ISO 9660 image |
+| `tests/test_classify_mp4.c` / `.h` | `ftyp` at offset 4 → ISO Media |
+| `tests/test_classify_pe.c` / `.h` | `MZ` + `e_lfanew` + `PE\0\0` → PE32 / PE32+; bare `MZ` → MS-DOS |
+| `tests/test_classify_dmg_tail.c` / `.h` | `koly` 512 bytes before the end (tail buffer) → Apple disk image |
 
 One scenario per `.c` / `.h` pair; headers declare the test function for
 `test_runner.c`.
@@ -65,6 +70,13 @@ translation unit — never `main.c`, `file_toto_identify.c`, `file_toto_cli.c`, 
 5. PDF `%PDF-` prefix: matches PDF rule.
 6. Random binary with no signature: falls through to data/binary.
 7. MIME mode: descriptions are `type/subtype` form for the same fixtures.
+8. Offset signatures: tar (257), ISO 9660 (32769), ISO Media (4), human + MIME.
+9. PE: PE32, PE32+, bare `MZ` and an `e_lfanew` outside the buffer (MS-DOS).
+10. Tail: `koly` in a 512-byte tail matches; no tail (`NULL`, `0`) or a tail
+    shorter than 512 bytes does not.
+
+Suites that do not exercise end-of-file magic pass `NULL, 0u` as the
+`tail` / `tail_len` arguments of `classify_content()`.
 
 ## Adding tests
 

@@ -85,7 +85,12 @@ file-toto/
 │   ├── test_classify_png.c / .h
 │   ├── test_classify_pdf.c / .h
 │   ├── test_classify_binary_data.c / .h
-│   └── test_classify_mime_flag.c / .h
+│   ├── test_classify_mime_flag.c / .h
+│   ├── test_classify_tar.c / .h
+│   ├── test_classify_iso9660.c / .h
+│   ├── test_classify_mp4.c / .h
+│   ├── test_classify_pe.c / .h
+│   └── test_classify_dmg_tail.c / .h
 └── build/               — scaffolding tracked; artefacts gitignored
     ├── .gitkeep
     ├── *.o              — generated
